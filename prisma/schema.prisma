@@ -1,0 +1,350 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Koperasi {
+  id                              String   @id @default(cuid())
+  name                            String
+  city                            String   // Legacy city name for backwards compatibility
+  address                         String
+
+  // Hierarchical wilayah references
+  provinceId                      String?
+  provinceKode                    String?
+  provinceNama                    String?
+
+  cityId                          String?
+  kotaKode                        String?
+  kotaNama                        String?
+
+  districtId                      String?
+  kecamatanKode                   String?
+  kecamatanNama                   String?
+
+  villageId                       String?
+  desaKode                        String?
+  desaNama                        String?
+
+  // Location
+  latitude                        Float
+  longitude                       Float
+
+  // PIC (Person in Charge)
+  picName                         String
+  picPhoneNumber                  String
+  personelDesa                    String?
+
+  // Military organizational hierarchy
+  kodimId                         String?
+
+  // Pemetaan lahan
+  pemetaanLahanId                 String?
+  pemetaanLahanValidationStatus   String?
+  isPengajuanDana                 Boolean  @default(false)
+
+  // Material inventory (denormalized)
+  materialsList                   Json?
+
+  // Dana disbursement tracking (denormalized for performance)
+  disbursementCount               Int      @default(0)
+  totalDanaReceived               Float    @default(0)
+  lastDisbursedAt                 DateTime?
+
+  // Progress tracking (denormalized)
+  progressPercentage              Float    @default(0)
+
+  // Notes
+  notes                           String?
+
+  // Soft delete
+  deletedAt                       DateTime?
+  deletedBy                       String?
+
+  createdAt                       DateTime @default(now())
+  updatedAt                       DateTime @updatedAt
+
+  // Relations
+  cctvs                           CCTV[]
+  province                        WilayahProvince? @relation(fields: [provinceId], references: [id])
+  cityRef                         WilayahCity? @relation(fields: [cityId], references: [id])
+  district                        WilayahDistrict? @relation(fields: [districtId], references: [id])
+  village                         WilayahVillage? @relation(fields: [villageId], references: [id])
+  kodim                           Kodim? @relation(fields: [kodimId], references: [id])
+
+  @@index([id])
+  @@index([city])
+  @@index([provinceId])
+  @@index([cityId])
+  @@index([districtId])
+  @@index([villageId])
+  @@index([picPhoneNumber])
+  @@index([disbursementCount])
+  @@index([totalDanaReceived])
+  @@index([pemetaanLahanId])
+  @@index([kodimId])
+  @@index([provinceKode])
+  @@index([kotaKode])
+  @@index([kecamatanKode])
+  @@index([desaKode])
+}
+
+model CCTV {
+  id                String      @id @default(cuid())
+  label             String      // e.g. "CCTV-01", "Pintu Masuk"
+  location          String      // e.g. "Lobby", "Kasir", "Gudang"
+  status            CCTVStatus  @default(ONLINE)
+  resolution        String?     // e.g. "1080p", "4K"
+  brand             String?
+  installedAt       DateTime    @default(now())
+  
+  // Current active IP (denormalized for query performance)
+  activeIpCctvId    String?     @unique // One-to-one: only 1 active IP per CCTV
+  
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  koperasiId        String
+  koperasi          Koperasi    @relation(fields: [koperasiId], references: [id])
+  
+  // Relations
+  ipCctvs           IP_CCTV[]
+  activeIpCctv      IP_CCTV?    @relation("ActiveIP", fields: [activeIpCctvId], references: [id])
+
+  @@index([koperasiId])
+  @@index([activeIpCctvId])
+}
+
+model IP_CCTV {
+  id              String      @id @default(cuid())
+  ipAddress       String      // Main streaming/management IP
+  port            Int         @default(8080) // Default RTSP/HTTP port
+  protocol        String      @default("RTSP") // e.g., "RTSP", "HTTP", "ONVIF"
+  username        String?     // Optional for auth
+  password        String?     // Optional for auth (should encrypt in production)
+  
+  // Track assignment state
+  isActive        Boolean     @default(true) // Current IP in use
+  assignedAt      DateTime    @default(now()) // When this IP was assigned
+  deactivatedAt   DateTime? // When this IP was replaced
+  
+  // Audit trail
+  notes           String?
+  changedBy       String?     // User ID who made the change
+  changeReason    String?     // Why the IP was changed
+  
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  cctvId          String
+  cctv            CCTV        @relation(fields: [cctvId], references: [id], onDelete: Cascade)
+  
+  // Reverse relation for active IP
+  isActiveFor     CCTV?       @relation("ActiveIP")
+
+  // Constraints
+  @@unique([cctvId, isActive]) // Only one active IP per CCTV
+  @@index([cctvId])
+  @@index([ipAddress])
+  @@index([isActive])
+}
+
+enum CCTVStatus {
+  ONLINE
+  OFFLINE
+  MAINTENANCE
+}
+
+enum CachedStatus {
+  PENGAJUAN_LAHAN
+  VERIFIKASI_LAHAN
+  PENGAJUAN_DANA
+  KONSTRUKSI
+  P50
+  SELESAI
+}
+
+model WilayahProvince {
+  id                         String              @id @default(cuid())
+  kode                       String              @unique
+  nama                       String
+
+  // Cached rollup statistics
+  statsTotalKota             Int?
+  statsTotalKoperasi         Int?
+  statsKotaPengajuanLahan    Int?
+  statsKotaVerifikasiLahan   Int?
+  statsKotaPengajuanDana     Int?
+  statsKotaKonstruksi        Int?
+  statsKotaP50               Int?
+  statsKotaSelesai           Int?
+
+  // Safety columns untuk tracking sync
+  lastNama                   String?
+  isSync                     Boolean             @default(false)
+  syncAt                     DateTime?
+  syncSource                 String?             @default("pemetaan")
+
+  cachedStatus               CachedStatus?
+
+  createdAt                  DateTime            @default(now())
+  updatedAt                  DateTime            @updatedAt
+
+  // Relations
+  cities                     WilayahCity[]
+  districts                  WilayahDistrict[]
+  villages                   WilayahVillage[]
+  koperasi                   Koperasi[]
+
+  @@index([kode])
+  @@index([nama])
+}
+
+model WilayahCity {
+  id                         String              @id @default(cuid())
+  kode                       String              @unique
+  nama                       String
+  provinceKode               String
+  provinceId                 String
+  latitude                   Float?
+  longitude                  Float?
+
+  // Cached rollup statistics
+  statsTotalKecamatan        Int?
+  statsTotalKoperasi         Int?
+  statsKecPengajuanLahan     Int?
+  statsKecVerifikasiLahan    Int?
+  statsKecPengajuanDana       Int?
+  statsKecKonstruksi         Int?
+  statsKecP50                Int?
+  statsKecSelesai            Int?
+
+  // Safety columns untuk tracking sync
+  lastNama                   String?
+  isSync                     Boolean             @default(false)
+  syncAt                     DateTime?
+  syncSource                 String?             @default("pemetaan")
+
+  cachedStatus               CachedStatus?
+
+  createdAt                  DateTime            @default(now())
+  updatedAt                  DateTime            @updatedAt
+
+  // Relations
+  province                   WilayahProvince     @relation(fields: [provinceId], references: [id])
+  districts                  WilayahDistrict[]
+  villages                   WilayahVillage[]
+  koperasi                   Koperasi[]
+
+  @@index([kode])
+  @@index([provinceId])
+  @@index([nama])
+}
+
+model WilayahDistrict {
+  id                         String              @id @default(cuid())
+  kode                       String              @unique
+  nama                       String
+  provinceKode               String
+  kotaKode                   String
+  provinceId                 String
+  kotaId                     String
+  latitude                   Float?
+  longitude                  Float?
+
+  // Cached rollup statistics
+  statsTotalDesa             Int?
+  statsTotalKoperasi         Int?
+  statsDesaPengajuanLahan     Int?
+  statsDesaVerifikasiLahan    Int?
+  statsDesaPengajuanDana      Int?
+  statsDesaKonstruksi        Int?
+  statsDesaP50               Int?
+  statsDesaSelesai           Int?
+
+  // Safety columns untuk tracking sync
+  lastNama                   String?
+  isSync                     Boolean             @default(false)
+  syncAt                     DateTime?
+  syncSource                 String?             @default("pemetaan")
+
+  cachedStatus               CachedStatus?
+
+  createdAt                  DateTime            @default(now())
+  updatedAt                  DateTime            @updatedAt
+
+  // Relations
+  province                   WilayahProvince     @relation(fields: [provinceId], references: [id])
+  city                       WilayahCity         @relation(fields: [kotaId], references: [id])
+  villages                   WilayahVillage[]
+  koperasi                   Koperasi[]
+
+  @@index([kode])
+  @@index([kotaId])
+  @@index([provinceId])
+  @@index([nama])
+}
+
+model WilayahVillage {
+  id                         String              @id @default(cuid())
+  kode                       String              @unique
+  nama                       String
+  provinceKode               String
+  kotaKode                   String
+  kecamatanKode              String
+  provinceId                 String
+  kotaId                     String
+  kecamatanId                String
+  latitude                   Float?
+  longitude                  Float?
+
+  // Cached rollup statistics
+  statsTotalKoperasi         Int?
+  statsKopPengajuanLahan      Int?
+  statsKopVerifikasiLahan    Int?
+  statsKopPengajuanDana      Int?
+  statsKopKonstruksi         Int?
+  statsKopP50                Int?
+  statsKopSelesai            Int?
+
+  // Safety columns untuk tracking sync
+  lastNama                   String?
+  isSync                     Boolean             @default(false)
+  syncAt                     DateTime?
+  syncSource                 String?             @default("pemetaan")
+
+  cachedStatus               CachedStatus?
+
+  createdAt                  DateTime            @default(now())
+  updatedAt                  DateTime            @updatedAt
+
+  // Relations
+  province                   WilayahProvince     @relation(fields: [provinceId], references: [id])
+  city                       WilayahCity         @relation(fields: [kotaId], references: [id])
+  district                   WilayahDistrict     @relation(fields: [kecamatanId], references: [id])
+  koperasi                   Koperasi[]
+
+  @@index([kode])
+  @@index([kecamatanId])
+  @@index([kotaId])
+  @@index([provinceId])
+  @@index([nama])
+}
+
+model Kodim {
+  id                         String              @id @default(cuid())
+  sourceSystemId             String              @unique @map("_id") // UUID from source system
+  nama                       String
+  kode                       String?
+
+  createdAt                  DateTime            @default(now())
+  updatedAt                  DateTime            @updatedAt
+
+  // Relations
+  koperasi                   Koperasi[]
+
+  @@index([sourceSystemId])
+}

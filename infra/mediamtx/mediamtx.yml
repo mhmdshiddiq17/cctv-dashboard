@@ -1,0 +1,89 @@
+logLevel: info
+
+api: yes
+apiAddress: :9997
+
+rtspAddress: :8554
+webrtc: yes
+webrtcAddress: :8889
+webrtcLocalUDPAddress: :8189
+webrtcIPsFromInterfaces: no
+webrtcAdditionalHosts: ["localhost", "127.0.0.1"]
+webrtcAllowOrigins: ["*"]
+
+paths:
+  1-c1:
+    source: "rtsp://admin:Hik2026!@192.168.6.244:554/Streaming/Channels/102"
+    sourceOnDemand: yes
+    sourceOnDemandStartTimeout: 15s
+    sourceOnDemandCloseAfter: 10s
+  1-c2:
+    source: "rtsp://admin:Hik2026!@192.168.6.3:554/Streaming/Channels/102"
+    sourceOnDemand: yes
+    sourceOnDemandStartTimeout: 15s
+    sourceOnDemandCloseAfter: 10s
+  1-c3:
+    source: "rtsp://admin:Hik2026!@192.168.6.8:554/Streaming/Channels/102"
+    sourceOnDemand: yes
+    sourceOnDemandStartTimeout: 15s
+    sourceOnDemandCloseAfter: 10s
+  2-c1:
+    source: "rtsp://admin:Admin%40123@192.168.88.250:8554/live1.264"
+    sourceOnDemand: yes
+    sourceOnDemandStartTimeout: 15s
+    sourceOnDemandCloseAfter: 10s
+  2-c2:
+    source: "rtsp://admin:Admin%40123@192.168.88.250:8554/live1.264"
+    sourceOnDemand: yes
+    sourceOnDemandStartTimeout: 15s
+    sourceOnDemandCloseAfter: 10s
+  2-c3:
+    source: "rtsp://admin:Admin%40123@192.168.88.250:8554/live1.264"
+    sourceOnDemand: yes
+    sourceOnDemandStartTimeout: 15s
+    sourceOnDemandCloseAfter: 10s
+  3-c1:
+    source: "rtsp://admin:password@192.168.3.101:554/Streaming/Channels/101"
+    sourceOnDemand: yes
+    sourceOnDemandStartTimeout: 15s
+    sourceOnDemandCloseAfter: 10s
+  3-c2:
+    source: "rtsp://admin:Admin%40123@192.168.88.250:8554/live1.264"
+    sourceOnDemand: yes
+    sourceOnDemandStartTimeout: 15s
+    sourceOnDemandCloseAfter: 10s
+  3-c3:
+    source: "rtsp://admin:password@192.168.3.103:554/Streaming/Channels/101"
+    sourceOnDemand: yes
+    sourceOnDemandStartTimeout: 15s
+    sourceOnDemandCloseAfter: 10s
+  4-c1:
+    source: "rtsp://admin:password@192.168.4.101:554/Streaming/Channels/101"
+    sourceOnDemand: yes
+    sourceOnDemandStartTimeout: 15s
+    sourceOnDemandCloseAfter: 10s
+  4-c2:
+    source: "rtsp://admin:password@192.168.4.102:554/Streaming/Channels/101"
+    sourceOnDemand: yes
+    sourceOnDemandStartTimeout: 15s
+    sourceOnDemandCloseAfter: 10s
+  4-c3:
+    source: "rtsp://admin:password@192.168.4.103:554/Streaming/Channels/101"
+    sourceOnDemand: yes
+    sourceOnDemandStartTimeout: 15s
+    sourceOnDemandCloseAfter: 10s
+  5-c1:
+    source: "rtsp://admin:password@192.168.5.101:554/Streaming/Channels/101"
+    sourceOnDemand: yes
+    sourceOnDemandStartTimeout: 15s
+    sourceOnDemandCloseAfter: 10s
+  5-c2:
+    source: "rtsp://admin:password@192.168.5.102:554/Streaming/Channels/101"
+    sourceOnDemand: yes
+    sourceOnDemandStartTimeout: 15s
+    sourceOnDemandCloseAfter: 10s
+  5-c3:
+    source: "rtsp://admin:password@192.168.5.103:554/Streaming/Channels/101"
+    sourceOnDemand: yes
+    sourceOnDemandStartTimeout: 15s
+    sourceOnDemandCloseAfter: 10s
