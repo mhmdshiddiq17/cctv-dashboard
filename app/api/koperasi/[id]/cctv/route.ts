@@ -9,15 +9,130 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { CCTVRepository } from '@/lib/repositories/CCTVRepository';
 import { prisma } from '@/lib/prisma';
+import type { CCTVProtocol } from '@/lib/types';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-function buildRtspStreamInfo(activeIp: {
+const DEFAULT_RTSP_PORT = 554;
+const DEFAULT_RTSP_STREAM_PATH =
+  process.env.CCTV_RTSP_STREAM_PATH?.trim() || '/Streaming/Channels/101';
+const SUPPORTED_PROTOCOLS: readonly CCTVProtocol[] = ['RTSP', 'HTTP', 'ONVIF', 'MQTT'];
+
+type ActiveIpStreamSource = {
   ipAddress: string;
-  port: number;
-  protocol: string;
-} | null) {
+  port: number | string | null;
+  protocol: string | null;
+  username?: string | null;
+  password?: string | null;
+  streamPath?: string | null;
+};
+
+function normalizePort(port: ActiveIpStreamSource['port']) {
+  const numericPort =
+    typeof port === 'number'
+      ? port
+      : typeof port === 'string'
+        ? Number(port)
+        : Number.NaN;
+
+  if (
+    Number.isFinite(numericPort) &&
+    Number.isInteger(numericPort) &&
+    numericPort > 0 &&
+    numericPort <= 65535
+  ) {
+    return numericPort;
+  }
+
+  return DEFAULT_RTSP_PORT;
+}
+
+function parsePortInput(port: unknown) {
+  if (port === undefined || port === null || port === '') {
+    return DEFAULT_RTSP_PORT;
+  }
+
+  const numericPort =
+    typeof port === 'number' ? port : typeof port === 'string' ? Number(port) : Number.NaN;
+
+  if (
+    Number.isFinite(numericPort) &&
+    Number.isInteger(numericPort) &&
+    numericPort > 0 &&
+    numericPort <= 65535
+  ) {
+    return numericPort;
+  }
+
+  return null;
+}
+
+function normalizeProtocolInput(protocol: unknown): CCTVProtocol {
+  if (typeof protocol !== 'string') {
+    return 'RTSP';
+  }
+
+  const normalized = protocol.trim().toUpperCase();
+  return SUPPORTED_PROTOCOLS.includes(normalized as CCTVProtocol)
+    ? (normalized as CCTVProtocol)
+    : 'RTSP';
+}
+
+function normalizePath(path: string | null | undefined) {
+  const cleaned = path?.trim();
+  if (!cleaned) {
+    return DEFAULT_RTSP_STREAM_PATH;
+  }
+
+  return cleaned.startsWith('/') ? cleaned : `/${cleaned}`;
+}
+
+function resolveRtspUrl(activeIp: ActiveIpStreamSource) {
+  const rawAddress = activeIp.ipAddress.trim();
+  if (!rawAddress) {
+    return null;
+  }
+
+  if (rawAddress.includes('://')) {
+    return rawAddress.toLowerCase().startsWith('rtsp://') ? rawAddress : null;
+  }
+
+  const protocol = activeIp.protocol?.trim().toUpperCase() || 'RTSP';
+  if (protocol !== 'RTSP') {
+    return null;
+  }
+
+  const firstSlashIndex = rawAddress.indexOf('/');
+  const hostPortPart =
+    firstSlashIndex === -1 ? rawAddress : rawAddress.slice(0, firstSlashIndex);
+  const addressPath =
+    firstSlashIndex === -1 ? null : rawAddress.slice(firstSlashIndex);
+
+  let parsedHost: URL;
+  try {
+    parsedHost = new URL(`rtsp://${hostPortPart}`);
+  } catch {
+    return null;
+  }
+
+  if (!parsedHost.hostname) {
+    return null;
+  }
+
+  const username = activeIp.username?.trim() ?? '';
+  const password = activeIp.password?.trim() ?? '';
+  const credentials = username
+    ? `${encodeURIComponent(username)}${password ? `:${encodeURIComponent(password)}` : ''}@`
+    : '';
+
+  const port = parsedHost.port ? Number(parsedHost.port) : normalizePort(activeIp.port);
+  const path = normalizePath(activeIp.streamPath || addressPath || DEFAULT_RTSP_STREAM_PATH);
+
+  return `rtsp://${credentials}${parsedHost.hostname}:${port}${path}`;
+}
+
+function buildRtspStreamInfo(activeIp: ActiveIpStreamSource | null) {
   if (!activeIp) {
     return {
       hasUsableRtsp: false,
@@ -28,34 +143,34 @@ function buildRtspStreamInfo(activeIp: {
     };
   }
 
-  const rawAddress = activeIp.ipAddress.trim();
-  if (!rawAddress || !rawAddress.toLowerCase().startsWith('rtsp://')) {
+  const rtspUrl = resolveRtspUrl(activeIp);
+  if (!rtspUrl) {
     return {
       hasUsableRtsp: false,
       rtspUrl: null,
       streamHost: null,
-      streamPort: null,
+      streamPort: normalizePort(activeIp.port),
       streamPath: null,
     };
   }
 
   try {
-    const parsed = new URL(rawAddress);
+    const parsed = new URL(rtspUrl);
     const pathname = `${parsed.pathname || ''}${parsed.search || ''}` || '/';
 
     return {
       hasUsableRtsp: Boolean(parsed.hostname),
-      rtspUrl: rawAddress,
+      rtspUrl,
       streamHost: parsed.hostname || null,
-      streamPort: parsed.port ? Number(parsed.port) : activeIp.port || 554,
+      streamPort: parsed.port ? Number(parsed.port) : normalizePort(activeIp.port),
       streamPath: pathname,
     };
   } catch {
     return {
       hasUsableRtsp: false,
-      rtspUrl: rawAddress,
+      rtspUrl,
       streamHost: null,
-      streamPort: activeIp.port || 554,
+      streamPort: normalizePort(activeIp.port),
       streamPath: null,
     };
   }
@@ -134,7 +249,20 @@ export async function POST(
 ) {
   try {
     const { id: koperasiId } = await params;
-    const body = await request.json();
+    const body = await request.json() as {
+      label?: string;
+      location?: string;
+      ipAddress?: string;
+      port?: number | string;
+      protocol?: string;
+      username?: string | null;
+      password?: string | null;
+      notes?: string | null;
+      streamPath?: string | null;
+      userId?: string;
+      brand?: string | null;
+      resolution?: string | null;
+    };
 
     // Validate input
     const { label, location, ipAddress, brand, resolution } = body;
@@ -145,14 +273,34 @@ export async function POST(
       );
     }
 
+    const port = parsePortInput(body.port);
+    if (port === null) {
+      return NextResponse.json(
+        { error: 'Port must be a valid integer between 1 and 65535' },
+        { status: 400 }
+      );
+    }
+
+    const protocol = normalizeProtocolInput(body.protocol);
+    const userId = body.userId?.trim() || 'system';
+
     // Create CCTV with IP
     const cctv = await CCTVRepository.create({
       label,
       location,
       koperasiId,
-      ipAddress,
       brand,
-      resolution
+      resolution,
+      createdBy: userId,
+      initialIP: {
+        ipAddress: ipAddress.trim(),
+        port,
+        protocol,
+        username: body.username?.trim() || null,
+        password: body.password?.trim() || null,
+        streamPath: body.streamPath?.trim() || null,
+        notes: body.notes?.trim() || null,
+      }
     });
 
     return NextResponse.json({

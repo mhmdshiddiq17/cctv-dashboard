@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Search, Download, Trash2, Play, Calendar } from 'lucide-react';
+import { Search, Download, Trash2, Play, Calendar, ChevronDown } from 'lucide-react';
 
 interface RecordingItem {
   id: string;
@@ -43,6 +43,7 @@ function QualityBadge({ quality }: Readonly<{ quality: string }>) {
 export default function RekamananPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterDate, setFilterDate] = useState<string>('');
+  const [expandedKoperasi, setExpandedKoperasi] = useState<string | null>(null);
 
   const filteredRecordings = MOCK_RECORDINGS.filter(recording => {
     const matchesSearch = 
@@ -53,6 +54,25 @@ export default function RekamananPage() {
     const matchesDate = !filterDate || recording.date === filterDate;
     return matchesSearch && matchesDate;
   });
+
+  const koperasiGroups = filteredRecordings.reduce((acc, recording) => {
+    if (!acc[recording.koperasi]) {
+      acc[recording.koperasi] = [];
+    }
+    acc[recording.koperasi].push(recording);
+    return acc;
+  }, {} as Record<string, RecordingItem[]>);
+
+  const filteredKoperasi = Object.entries(koperasiGroups).map(([koperasi, recordings]) => ({
+    koperasi,
+    recordings,
+  }));
+
+  const getGroupSize = (recordings: RecordingItem[]) => {
+    return recordings
+      .reduce((sum, rec) => sum + Number.parseFloat(rec.size), 0)
+      .toFixed(2);
+  };
 
   // Calculate total size
   const totalSize = MOCK_RECORDINGS.reduce((sum, rec) => {
@@ -110,56 +130,80 @@ export default function RekamananPage() {
 
       {/* Table */}
       <div className="flex-1 overflow-auto rounded-lg border border-gray-800 bg-gray-900">
-        <table className="w-full text-sm">
-          <thead className="bg-gray-800 border-b border-gray-700 sticky top-0">
-            <tr>
-              <th className="px-4 py-3 text-left font-semibold text-gray-300">CCTV</th>
-              <th className="px-4 py-3 text-left font-semibold text-gray-300">Lokasi</th>
-              <th className="px-4 py-3 text-left font-semibold text-gray-300">Koperasi</th>
-              <th className="px-4 py-3 text-left font-semibold text-gray-300">Tanggal</th>
-              <th className="px-4 py-3 text-left font-semibold text-gray-300">Waktu</th>
-              <th className="px-4 py-3 text-left font-semibold text-gray-300">Durasi</th>
-              <th className="px-4 py-3 text-left font-semibold text-gray-300">Ukuran</th>
-              <th className="px-4 py-3 text-left font-semibold text-gray-300">Kualitas</th>
-              <th className="px-4 py-3 text-center font-semibold text-gray-300">Aksi</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-800">
-            {filteredRecordings.length > 0 ? (
-              filteredRecordings.map((recording) => (
-                <tr key={recording.id} className="hover:bg-gray-800/50 transition">
-                  <td className="px-4 py-3 text-white font-medium">{recording.cctvLabel}</td>
-                  <td className="px-4 py-3 text-gray-400">{recording.location}</td>
-                  <td className="px-4 py-3 text-gray-400 text-xs">{recording.koperasi}</td>
-                  <td className="px-4 py-3 text-gray-400">{recording.date}</td>
-                  <td className="px-4 py-3 text-gray-400 text-xs">{recording.startTime} - {recording.endTime}</td>
-                  <td className="px-4 py-3 text-gray-400">{recording.duration}</td>
-                  <td className="px-4 py-3 text-gray-400">{recording.size}</td>
-                  <td className="px-4 py-3"><QualityBadge quality={recording.quality} /></td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center justify-center gap-2">
-                      <button className="p-1.5 bg-gray-800 hover:bg-blue-600 text-gray-400 hover:text-white rounded transition" title="Play">
-                        <Play size={14} />
-                      </button>
-                      <button className="p-1.5 bg-gray-800 hover:bg-green-600 text-gray-400 hover:text-white rounded transition" title="Download">
-                        <Download size={14} />
-                      </button>
-                      <button className="p-1.5 bg-gray-800 hover:bg-red-600 text-gray-400 hover:text-white rounded transition" title="Delete">
-                        <Trash2 size={14} />
-                      </button>
+        <div className="divide-y divide-gray-800">
+          {filteredKoperasi.length > 0 ? (
+            filteredKoperasi.map((group) => (
+              <div key={group.koperasi}>
+                <button
+                  onClick={() => setExpandedKoperasi(expandedKoperasi === group.koperasi ? null : group.koperasi)}
+                  className="w-full px-4 py-4 bg-gray-800 hover:bg-gray-700 transition flex items-center justify-between text-left"
+                >
+                  <div className="flex items-center gap-3 flex-1">
+                    <ChevronDown
+                      size={18}
+                      className={`text-gray-400 transition-transform ${expandedKoperasi === group.koperasi ? 'rotate-180' : ''}`}
+                    />
+                    <div className="flex-1">
+                      <h3 className="text-white font-semibold">{group.koperasi}</h3>
+                      <p className="text-gray-400 text-xs mt-0.5">
+                        {group.recordings.length} Rekaman • {getGroupSize(group.recordings)} GB
+                      </p>
                     </div>
-                  </td>
-                </tr>
-              ))
-            ) : (
-              <tr>
-                <td colSpan={9} className="px-4 py-8 text-center text-gray-500">
-                  Tidak ada data rekaman
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+                  </div>
+                </button>
+
+                {expandedKoperasi === group.koperasi && (
+                  <div className="bg-gray-900">
+                    <table className="w-full text-sm">
+                      <thead className="bg-gray-800 border-t border-gray-700">
+                        <tr>
+                          <th className="px-4 py-3 text-left font-semibold text-gray-300">CCTV</th>
+                          <th className="px-4 py-3 text-left font-semibold text-gray-300">Lokasi</th>
+                          <th className="px-4 py-3 text-left font-semibold text-gray-300">Tanggal</th>
+                          <th className="px-4 py-3 text-left font-semibold text-gray-300">Waktu</th>
+                          <th className="px-4 py-3 text-left font-semibold text-gray-300">Durasi</th>
+                          <th className="px-4 py-3 text-left font-semibold text-gray-300">Ukuran</th>
+                          <th className="px-4 py-3 text-left font-semibold text-gray-300">Kualitas</th>
+                          <th className="px-4 py-3 text-center font-semibold text-gray-300">Aksi</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-800">
+                        {group.recordings.map((recording) => (
+                          <tr key={recording.id} className="hover:bg-gray-800/50 transition">
+                            <td className="px-4 py-3 text-white font-medium">{recording.cctvLabel}</td>
+                            <td className="px-4 py-3 text-gray-400">{recording.location}</td>
+                            <td className="px-4 py-3 text-gray-400">{recording.date}</td>
+                            <td className="px-4 py-3 text-gray-400 text-xs">{recording.startTime} - {recording.endTime}</td>
+                            <td className="px-4 py-3 text-gray-400">{recording.duration}</td>
+                            <td className="px-4 py-3 text-gray-400">{recording.size}</td>
+                            <td className="px-4 py-3"><QualityBadge quality={recording.quality} /></td>
+                            <td className="px-4 py-3">
+                              <div className="flex items-center justify-center gap-2">
+                                <button className="p-1.5 bg-gray-800 hover:bg-blue-600 text-gray-400 hover:text-white rounded transition" title="Play">
+                                  <Play size={14} />
+                                </button>
+                                <button className="p-1.5 bg-gray-800 hover:bg-green-600 text-gray-400 hover:text-white rounded transition" title="Download">
+                                  <Download size={14} />
+                                </button>
+                                <button className="p-1.5 bg-gray-800 hover:bg-red-600 text-gray-400 hover:text-white rounded transition" title="Delete">
+                                  <Trash2 size={14} />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            ))
+          ) : (
+            <div className="px-4 py-8 text-center text-gray-500">
+              Tidak ada data rekaman
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

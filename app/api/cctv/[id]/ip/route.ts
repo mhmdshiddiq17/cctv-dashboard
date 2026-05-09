@@ -4,7 +4,8 @@
  * 
  * Body:
  *   - ipAddress (required): New IP address
- *   - port (optional): Port number, default 8080
+ *   - port (optional): Port number, default 554
+ *   - streamPath (optional): Path after host:port, e.g. /Streaming/Channels/101
  *   - reason (optional): Why the IP was changed
  *   - userId (required in production): User ID making the change
  */
@@ -12,6 +13,41 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { CCTVRepository } from '@/lib/repositories/CCTVRepository';
 import { prisma } from '@/lib/prisma';
+import type { CCTVProtocol } from '@/lib/types';
+
+const DEFAULT_RTSP_PORT = 554;
+const SUPPORTED_PROTOCOLS: readonly CCTVProtocol[] = ['RTSP', 'HTTP', 'ONVIF', 'MQTT'];
+
+function parsePortInput(port: unknown) {
+  if (port === undefined || port === null || port === '') {
+    return DEFAULT_RTSP_PORT;
+  }
+
+  const numericPort =
+    typeof port === 'number' ? port : typeof port === 'string' ? Number(port) : Number.NaN;
+
+  if (
+    Number.isFinite(numericPort) &&
+    Number.isInteger(numericPort) &&
+    numericPort > 0 &&
+    numericPort <= 65535
+  ) {
+    return numericPort;
+  }
+
+  return null;
+}
+
+function normalizeProtocolInput(protocol: unknown): CCTVProtocol {
+  if (typeof protocol !== 'string') {
+    return 'RTSP';
+  }
+
+  const normalized = protocol.trim().toUpperCase();
+  return SUPPORTED_PROTOCOLS.includes(normalized as CCTVProtocol)
+    ? (normalized as CCTVProtocol)
+    : 'RTSP';
+}
 
 export async function PATCH(
   request: NextRequest,
@@ -19,9 +55,21 @@ export async function PATCH(
 ) {
   try {
     const { id: cctvId } = await params;
-    const body = await request.json();
+    const body = await request.json() as {
+      ipAddress?: string;
+      port?: number | string;
+      protocol?: string;
+      username?: string | null;
+      password?: string | null;
+      streamPath?: string | null;
+      notes?: string | null;
+      reason?: string;
+      userId?: string;
+    };
 
-    const { ipAddress, port = 8080, reason = 'Manual update', userId = 'system' } = body;
+    const { ipAddress } = body;
+    const reason = body.reason?.trim() || 'Manual update';
+    const userId = body.userId?.trim() || 'system';
 
     // Validate input
     if (!ipAddress) {
@@ -40,18 +88,27 @@ export async function PATCH(
       );
     }
 
-    // Validate port
-    if (port < 1 || port > 65535) {
+    const port = parsePortInput(body.port);
+    if (port === null) {
       return NextResponse.json(
         { error: 'Port must be between 1 and 65535' },
         { status: 400 }
       );
     }
+    const protocol = normalizeProtocolInput(body.protocol);
 
     // Update IP with audit trail
     const newIpRecord = await CCTVRepository.updateIP(
       cctvId,
-      ipAddress,
+      {
+        ipAddress: ipAddress.trim(),
+        port,
+        protocol,
+        username: body.username?.trim() || null,
+        password: body.password?.trim() || null,
+        streamPath: body.streamPath?.trim() || null,
+        notes: body.notes?.trim() || null,
+      },
       userId,
       reason
     );

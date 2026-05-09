@@ -12,78 +12,78 @@ webrtcAdditionalHosts: ["localhost", "127.0.0.1"]
 webrtcAllowOrigins: ["*"]
 
 paths:
-  1-c1:
-    source: "rtsp://admin:Hik2026!@192.168.6.244:554/Streaming/Channels/102"
+  daae901b-4c68-41f5-9cb2-8087dd1cde2c:
+    source: "rtsp://admin:Hik2026!@192.168.6.9:554/Streaming/Channels/101"
     sourceOnDemand: yes
     sourceOnDemandStartTimeout: 15s
     sourceOnDemandCloseAfter: 10s
-  1-c2:
-    source: "rtsp://admin:Hik2026!@192.168.6.3:554/Streaming/Channels/102"
+  f0e7f086-184b-42fb-8c53-c53526a360dc:
+    source: "rtsp://admin:Hik2026!@192.168.6.9:554/Streaming/Channels/101"
     sourceOnDemand: yes
     sourceOnDemandStartTimeout: 15s
     sourceOnDemandCloseAfter: 10s
-  1-c3:
-    source: "rtsp://admin:Hik2026!@192.168.6.8:554/Streaming/Channels/102"
+  b34146c4-a2c6-4bfb-8640-4f6129e8b172:
+    source: "rtsp://admin:Hik2026!@192.168.6.9:554/Streaming/Channels/101"
     sourceOnDemand: yes
     sourceOnDemandStartTimeout: 15s
     sourceOnDemandCloseAfter: 10s
-  2-c1:
-    source: "rtsp://admin:Admin%40123@192.168.88.250:8554/live1.264"
+  68bbde26-9860-4de2-8e1f-4ba2779974cd:
+    source: "rtsp://admin:Hik2026!@192.168.6.9:554/Streaming/Channels/101"
     sourceOnDemand: yes
     sourceOnDemandStartTimeout: 15s
     sourceOnDemandCloseAfter: 10s
-  2-c2:
-    source: "rtsp://admin:Admin%40123@192.168.88.250:8554/live1.264"
+  166a9dfd-7cf0-4b86-a658-34b3cb61f811:
+    source: "rtsp://admin:Hik2026!@192.168.6.9:554/Streaming/Channels/101"
     sourceOnDemand: yes
     sourceOnDemandStartTimeout: 15s
     sourceOnDemandCloseAfter: 10s
-  2-c3:
-    source: "rtsp://admin:Admin%40123@192.168.88.250:8554/live1.264"
+  25211de1-9cbc-4d24-b384-7db7b6be74db:
+    source: "rtsp://admin:Hik2026!@192.168.6.9:554/Streaming/Channels/101"
     sourceOnDemand: yes
     sourceOnDemandStartTimeout: 15s
     sourceOnDemandCloseAfter: 10s
-  3-c1:
-    source: "rtsp://admin:password@192.168.3.101:554/Streaming/Channels/101"
+  98eaa881-79bd-4684-8e06-37616daa584c:
+    source: "rtsp://admin:Hik2026!@192.168.6.9:554/Streaming/Channels/101"
     sourceOnDemand: yes
     sourceOnDemandStartTimeout: 15s
     sourceOnDemandCloseAfter: 10s
-  3-c2:
-    source: "rtsp://admin:Admin%40123@192.168.88.250:8554/live1.264"
+  fc67ee1a-c26e-4d67-a309-6102783af9ec:
+    source: "rtsp://admin:Hik2026!@192.168.6.9:554/Streaming/Channels/101"
     sourceOnDemand: yes
     sourceOnDemandStartTimeout: 15s
     sourceOnDemandCloseAfter: 10s
-  3-c3:
-    source: "rtsp://admin:password@192.168.3.103:554/Streaming/Channels/101"
+  931a761f-7b69-42c1-b783-429262dc1ab9:
+    source: "rtsp://admin:Hik2026!@192.168.6.9:554/Streaming/Channels/101"
     sourceOnDemand: yes
     sourceOnDemandStartTimeout: 15s
     sourceOnDemandCloseAfter: 10s
-  4-c1:
-    source: "rtsp://admin:password@192.168.4.101:554/Streaming/Channels/101"
+  fa90b1b6-f542-47cd-8f3d-66c92fd63eae:
+    source: "rtsp://admin:Hik2026!@192.168.6.4:554/Streaming/Channels/101"
     sourceOnDemand: yes
     sourceOnDemandStartTimeout: 15s
     sourceOnDemandCloseAfter: 10s
-  4-c2:
-    source: "rtsp://admin:password@192.168.4.102:554/Streaming/Channels/101"
+  0d4e7e35-c334-4e46-860e-62e3ab25dc99:
+    source: "rtsp://admin:Hik2026!@192.168.6.101:554/Streaming/Channels/101"
     sourceOnDemand: yes
     sourceOnDemandStartTimeout: 15s
     sourceOnDemandCloseAfter: 10s
-  4-c3:
-    source: "rtsp://admin:password@192.168.4.103:554/Streaming/Channels/101"
+  65a7c7ce-d39b-47ef-8106-7e31055f206d:
+    source: "rtsp://admin:Hik2026!@192.168.6.9:554/Streaming/Channels/101"
     sourceOnDemand: yes
     sourceOnDemandStartTimeout: 15s
     sourceOnDemandCloseAfter: 10s
-  5-c1:
-    source: "rtsp://admin:password@192.168.5.101:554/Streaming/Channels/101"
+  b8b6635b-696d-457d-a6a0-7e4e23464fc0:
+    source: "rtsp://admin:Hik2026!@192.168.6.9:554/Streaming/Channels/101"
     sourceOnDemand: yes
     sourceOnDemandStartTimeout: 15s
     sourceOnDemandCloseAfter: 10s
-  5-c2:
-    source: "rtsp://admin:password@192.168.5.102:554/Streaming/Channels/101"
+  3059d6f6-184e-48af-b3b5-5fd8627bc627:
+    source: "rtsp://admin:Hik2026!@192.168.6.8:554/Streaming/Channels/101"
     sourceOnDemand: yes
     sourceOnDemandStartTimeout: 15s
     sourceOnDemandCloseAfter: 10s
-  5-c3:
-    source: "rtsp://admin:password@192.168.5.103:554/Streaming/Channels/101"
+  7862f9a8-d802-4dad-964e-344ae85064e2:
+    source: "rtsp://admin:Hik2026!@192.168.6.3:554/Streaming/Channels/101"
     sourceOnDemand: yes
     sourceOnDemandStartTimeout: 15s
     sourceOnDemandCloseAfter: 10s

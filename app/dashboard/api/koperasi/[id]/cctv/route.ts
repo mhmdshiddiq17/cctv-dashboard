@@ -12,6 +12,9 @@ export const dynamic = 'force-dynamic';
 
 const WEBRTC_URL_TEMPLATE = process.env.CCTV_WEBRTC_URL_TEMPLATE;
 const WEBRTC_BASE_URL = process.env.CCTV_WEBRTC_BASE_URL || process.env.NEXT_PUBLIC_CCTV_WEBRTC_BASE_URL || 'http://localhost:8889';
+const DEFAULT_RTSP_PORT = 554;
+const DEFAULT_RTSP_STREAM_PATH =
+  process.env.CCTV_RTSP_STREAM_PATH?.trim() || '/Streaming/Channels/101';
 
 type ActiveIpRecord = {
   id: string;
@@ -20,6 +23,7 @@ type ActiveIpRecord = {
   protocol: string;
   username: string | null;
   password: string | null;
+  streamPath: string | null;
   isActive: boolean;
   assignedAt: Date;
   deactivatedAt: Date | null;
@@ -52,14 +56,78 @@ function hasUsableStreamSource(activeIp: ActiveIpRecord | null) {
     return false;
   }
 
-  const rawAddress = activeIp.ipAddress?.trim();
-  if (!rawAddress) {
-    return false;
+  return Boolean(resolveRtspUrl(activeIp));
+}
+
+function normalizePort(port: unknown) {
+  const numericPort =
+    typeof port === 'number' ? port : typeof port === 'string' ? Number(port) : Number.NaN;
+
+  if (
+    Number.isFinite(numericPort) &&
+    Number.isInteger(numericPort) &&
+    numericPort > 0 &&
+    numericPort <= 65535
+  ) {
+    return numericPort;
   }
 
-  const isRtspByAddress = rawAddress.toLowerCase().startsWith('rtsp://');
-  const isRtspByProtocol = activeIp.protocol.toUpperCase() === 'RTSP';
-  return isRtspByAddress || isRtspByProtocol;
+  return DEFAULT_RTSP_PORT;
+}
+
+function normalizePath(path: string | null | undefined) {
+  const cleaned = path?.trim();
+  if (!cleaned) {
+    return DEFAULT_RTSP_STREAM_PATH;
+  }
+
+  return cleaned.startsWith('/') ? cleaned : `/${cleaned}`;
+}
+
+function resolveRtspUrl(activeIp: ActiveIpRecord | null) {
+  if (!activeIp) {
+    return null;
+  }
+
+  const rawAddress = activeIp.ipAddress?.trim();
+  if (!rawAddress) {
+    return null;
+  }
+
+  if (rawAddress.includes('://')) {
+    return rawAddress.toLowerCase().startsWith('rtsp://') ? rawAddress : null;
+  }
+
+  if (activeIp.protocol.toUpperCase() !== 'RTSP') {
+    return null;
+  }
+
+  const firstSlashIndex = rawAddress.indexOf('/');
+  const hostPortPart =
+    firstSlashIndex === -1 ? rawAddress : rawAddress.slice(0, firstSlashIndex);
+  const addressPath =
+    firstSlashIndex === -1 ? null : rawAddress.slice(firstSlashIndex);
+
+  let parsedHost: URL;
+  try {
+    parsedHost = new URL(`rtsp://${hostPortPart}`);
+  } catch {
+    return null;
+  }
+
+  if (!parsedHost.hostname) {
+    return null;
+  }
+
+  const username = activeIp.username?.trim() ?? '';
+  const password = activeIp.password?.trim() ?? '';
+  const credentials = username
+    ? `${encodeURIComponent(username)}${password ? `:${encodeURIComponent(password)}` : ''}@`
+    : '';
+  const port = parsedHost.port ? Number(parsedHost.port) : normalizePort(activeIp.port);
+  const path = normalizePath(activeIp.streamPath || addressPath || DEFAULT_RTSP_STREAM_PATH);
+
+  return `rtsp://${credentials}${parsedHost.hostname}:${port}${path}`;
 }
 
 function isLikelyDummyRtsp(rawAddress: string) {
@@ -72,6 +140,7 @@ function isLikelyDummyRtsp(rawAddress: string) {
 function buildWebRtcUrl(cctv: {
   id: string;
   activeIpCctv: ActiveIpRecord | null;
+  rtspUrl: string | null;
 }) {
   const rawAddress = cctv.activeIpCctv?.ipAddress?.trim();
   if (!rawAddress) {
@@ -89,14 +158,23 @@ function buildWebRtcUrl(cctv: {
   const streamKey = cctv.id;
 
   if (WEBRTC_URL_TEMPLATE) {
-    return WEBRTC_URL_TEMPLATE.replace('{streamKey}', encodeURIComponent(streamKey));
+    return WEBRTC_URL_TEMPLATE
+      .replace('{streamKey}', encodeURIComponent(streamKey))
+      .replace('{rtspUrl}', cctv.rtspUrl || '')
+      .replace('{encodedRtspUrl}', cctv.rtspUrl ? encodeURIComponent(cctv.rtspUrl) : '');
   }
 
   if (!WEBRTC_BASE_URL) {
     return null;
   }
 
-  return `${WEBRTC_BASE_URL.replace(/\/$/, '')}/${encodeURIComponent(streamKey)}/whep`;
+  const baseWhepUrl = `${WEBRTC_BASE_URL.replace(/\/$/, '')}/${encodeURIComponent(streamKey)}/whep`;
+  if (!cctv.rtspUrl) {
+    return baseWhepUrl;
+  }
+
+  const sourceWithProtocol = cctv.rtspUrl.replace(/^rtsp:\/\//i, 'rtsp://');
+  return `${baseWhepUrl}?source=${encodeURIComponent(sourceWithProtocol)}`;
 }
 
 const REACHABILITY_CACHE_TTL_MS = 20_000;
@@ -151,6 +229,7 @@ function sanitizeIp(ip: {
   protocol: string;
   username: string | null;
   password: string | null;
+  streamPath: string | null;
   isActive: boolean;
   assignedAt: Date;
   deactivatedAt: Date | null;
@@ -242,13 +321,18 @@ export async function GET(
             const resolvedActiveIp = pickActiveIp(cctv);
             const isOnline = cctv.status === 'ONLINE';
             const hasUsableSource = hasUsableStreamSource(resolvedActiveIp);
+            const resolvedRtspUrl = resolveRtspUrl(resolvedActiveIp);
             const candidateWebRtcUrl = buildWebRtcUrl({
               id: cctv.id,
               activeIpCctv: resolvedActiveIp,
+              rtspUrl: resolvedRtspUrl,
             });
 
             const isReachable = isOnline && hasUsableSource && resolvedActiveIp
-              ? await isRtspEndpointReachable(resolvedActiveIp.ipAddress, resolvedActiveIp.port || 554)
+              ? await isRtspEndpointReachable(
+                  resolvedRtspUrl || resolvedActiveIp.ipAddress,
+                  normalizePort(resolvedActiveIp.port)
+                )
               : false;
 
             const hasStream = isOnline && hasUsableSource && Boolean(candidateWebRtcUrl) && isReachable;

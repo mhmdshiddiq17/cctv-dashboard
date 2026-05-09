@@ -1,6 +1,11 @@
 import { prisma } from '@/lib/prisma';
 import type { IpCctv } from '@/lib/types';
 
+type IpConfigInput = Pick<
+  IpCctv,
+  'ipAddress' | 'port' | 'protocol' | 'username' | 'password' | 'streamPath' | 'notes'
+>;
+
 /**
  * CCTV Repository - Data access layer for CCTV and IP_CCTV operations
  * Handles queries, mutations, and business logic for CCTV management
@@ -57,7 +62,7 @@ export class CCTVRepository {
    */
   static async updateIP(
     cctvId: string,
-    newIpData: Omit<IpCctv, 'id' | 'isActive' | 'assignedAt' | 'deactivatedAt'>,
+    newIpData: IpConfigInput,
     userId: string,
     reason?: string
   ) {
@@ -83,6 +88,7 @@ export class CCTVRepository {
         protocol: newIpData.protocol,
         username: newIpData.username,
         password: newIpData.password,
+        streamPath: newIpData.streamPath,
         isActive: true,
         assignedAt: new Date(),
         changedBy: userId,
@@ -107,7 +113,9 @@ export class CCTVRepository {
     koperasiId: string;
     label: string;
     location: string;
-    initialIP: Omit<IpCctv, 'id' | 'isActive' | 'assignedAt' | 'deactivatedAt'>;
+    brand?: string | null;
+    resolution?: string | null;
+    initialIP: IpConfigInput;
     createdBy: string;
   }) {
     return await prisma.$transaction(async () => {
@@ -117,6 +125,8 @@ export class CCTVRepository {
           koperasiId: data.koperasiId,
           label: data.label,
           location: data.location,
+          brand: data.brand ?? null,
+          resolution: data.resolution ?? null,
           status: 'ONLINE',
         },
       });
@@ -130,6 +140,7 @@ export class CCTVRepository {
           protocol: data.initialIP.protocol,
           username: data.initialIP.username,
           password: data.initialIP.password,
+          streamPath: data.initialIP.streamPath,
           isActive: true,
           assignedAt: new Date(),
           changedBy: data.createdBy,

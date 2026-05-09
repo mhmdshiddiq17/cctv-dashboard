@@ -7,7 +7,7 @@ datasource db {
 }
 
 model Koperasi {
-  id                              String   @id @default(cuid())
+  id                              String   @id @default(uuid())
   name                            String
   city                            String   // Legacy city name for backwards compatibility
   address                         String
@@ -93,7 +93,7 @@ model Koperasi {
 }
 
 model CCTV {
-  id                String      @id @default(cuid())
+  id                String      @id @default(uuid())
   label             String      // e.g. "CCTV-01", "Pintu Masuk"
   location          String      // e.g. "Lobby", "Kasir", "Gudang"
   status            CCTVStatus  @default(ONLINE)
@@ -119,12 +119,13 @@ model CCTV {
 }
 
 model IP_CCTV {
-  id              String      @id @default(cuid())
+  id              String      @id @default(uuid())
   ipAddress       String      // Main streaming/management IP
-  port            Int         @default(8080) // Default RTSP/HTTP port
+  port            Int         @default(554) // Default RTSP/HTTP port
   protocol        String      @default("RTSP") // e.g., "RTSP", "HTTP", "ONVIF"
   username        String?     // Optional for auth
   password        String?     // Optional for auth (should encrypt in production)
+  streamPath      String?     // Path segment after host:port, e.g. /Streaming/Channels/101
   
   // Track assignment state
   isActive        Boolean     @default(true) // Current IP in use

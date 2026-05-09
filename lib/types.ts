@@ -9,6 +9,7 @@ export interface IpCctv {
   protocol: CCTVProtocol;
   username: string | null;
   password: string | null;
+  streamPath: string | null;
   isActive: boolean;
   assignedAt: string; // ISO 8601
   deactivatedAt: string | null;

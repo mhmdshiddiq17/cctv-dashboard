@@ -1,7 +1,8 @@
 'use client';
 
 import { NAV_ITEMS } from "@/lib/const";
-import { ChevronRight, Menu, Shield } from "lucide-react";
+import Image from "next/image";
+import { ChevronRight, Menu } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 interface SidebarProps {
@@ -16,7 +17,6 @@ function Sidebar({ activeNav, collapsed, setCollapsed }: Readonly<SidebarProps>)
   const getNavRoute = (navId: string) => {
     const routes: Record<string, string> = {
       dashboard: '/dashboard',
-      map: '/dashboard',
       cctv: '/dashboard/manajemen-cctv',
       recording: '/dashboard/rekaman',
       settings: '/dashboard/pengaturan',
@@ -31,16 +31,17 @@ function Sidebar({ activeNav, collapsed, setCollapsed }: Readonly<SidebarProps>)
   return (
     <aside className={`flex flex-col h-full bg-gray-950 border-r border-red-900 transition-all duration-300 ${collapsed ? "w-16" : "w-60"}`}>
       {/* Logo */}
-      <div className="flex items-center gap-3 px-4 py-4 border-b border-red-900">
-        <div className="shrink-0 w-8 h-8 bg-red-600 rounded-lg flex items-center justify-center shadow-lg shadow-red-900">
-          <Shield size={16} className="text-white" />
+      <div className="flex items-center px-4 py-4 border-b border-red-900">
+        <div className={`flex w-full ${collapsed ? "justify-center" : "justify-start"}`}>
+          <Image
+            src="/Logo-Koperasi-Merah-Putih.png"
+            alt="Logo Koperasi"
+            width={collapsed ? 32 : 160}
+            height={collapsed ? 32 : 44}
+            className={collapsed ? "h-8 w-8 object-contain" : "h-10 w-auto object-contain"}
+            priority
+          />
         </div>
-        {!collapsed && (
-          <div className="leading-tight">
-            <p className="text-white font-bold text-sm tracking-wide">KOPERAS<span className="text-red-500">I</span></p>
-            <p className="text-gray-400 text-xs">CCTV Monitor</p>
-          </div>
-        )}
       </div>
 
       {/* Nav Items */}

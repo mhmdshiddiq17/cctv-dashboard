@@ -172,16 +172,11 @@ export default function KoperasiMap({
 
     const L = (globalThis.window as any).L;
 
-    // Remove old markers
-    Object.values(markersRef.current).forEach((marker: any) => {
-      if (mapRef.current.hasLayer(marker)) {
-        mapRef.current.removeLayer(marker);
-      }
-    });
-    markersRef.current = {};
+    const nextIds = new Set<string>();
 
     // Add new markers
     koperasiList.forEach((koperasi) => {
+      nextIds.add(koperasi.id);
       let statusKey: 'online' | 'partial' | 'offline';
       if (koperasi.onlineCCTV === koperasi.totalCCTV) {
         statusKey = 'online';
@@ -192,34 +187,76 @@ export default function KoperasiMap({
       }
 
       const isSelected = selectedKoperasi?.id === koperasi.id;
+      const popupHtml = (() => {
+        const offlineCCTV = koperasi.totalCCTV - koperasi.onlineCCTV;
+        const uptimePercent = koperasi.totalCCTV > 0
+          ? Math.round((koperasi.onlineCCTV / koperasi.totalCCTV) * 100)
+          : 0;
+
+        return `
+          <div style="font-family: system-ui;">
+            <h4 style="margin: 0 0 8px; color: #1f2937; font-size: 14px; font-weight: 600;">
+              ${koperasi.name}
+            </h4>
+            <p style="margin: 0 0 8px; color: #6b7280; font-size: 12px;">
+              📍 ${koperasi.city}, ${koperasi.province}
+            </p>
+            <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; margin-bottom: 10px; font-size: 12px;">
+              <span style="color: #374151; font-weight: 600;">Total CCTV</span>
+              <span style="text-align: right; color: #111827; font-weight: 600;">${koperasi.totalCCTV}</span>
+              <span style="color: #16a34a; font-weight: 600;">Online</span>
+              <span style="text-align: right; color: #16a34a; font-weight: 600;">${koperasi.onlineCCTV}</span>
+              <span style="color: #dc2626; font-weight: 600;">Offline</span>
+              <span style="text-align: right; color: #dc2626; font-weight: 600;">${offlineCCTV}</span>
+              <span style="color: #6b7280; font-weight: 600;">Uptime</span>
+              <span style="text-align: right; color: #374151; font-weight: 600;">${uptimePercent}%</span>
+            </div>
+            <a
+              href="/dashboard/koperasi/${koperasi.id}"
+              style="display: inline-flex; align-items: center; justify-content: center; width: 100%; padding: 8px 10px; background: #dc2626; color: #ffffff; border-radius: 6px; font-size: 12px; font-weight: 600; text-decoration: none;"
+            >
+              Lihat Detail Koperasi
+            </a>
+          </div>
+        `;
+      })();
+
+      const icon = createMarkerIcon(statusKey, isSelected);
+      const existingMarker = markersRef.current[koperasi.id];
+
+      if (existingMarker) {
+        existingMarker.setIcon(icon);
+        existingMarker.bindPopup(popupHtml, { maxWidth: 260 });
+        existingMarker.off('click');
+        existingMarker.on('click', () => {
+          onSelectKoperasi(isSelected ? null : koperasi);
+          existingMarker.openPopup();
+        });
+        return;
+      }
+
       const marker = L.marker([koperasi.lat, koperasi.lng], {
-        icon: createMarkerIcon(statusKey, isSelected),
+        icon,
       });
 
-      const popupHtml = `
-        <div style="font-family: system-ui;">
-          <h4 style="margin: 0 0 8px; color: #1f2937; font-size: 14px; font-weight: 600;">
-            ${koperasi.name}
-          </h4>
-          <p style="margin: 0 0 6px; color: #6b7280; font-size: 12px;">
-            📍 ${koperasi.city}, ${koperasi.province}
-          </p>
-          <div style="display: flex; gap: 12px; margin: 8px 0; font-size: 12px;">
-            <span style="color: #22c55e; font-weight: 600;">✓ ${koperasi.onlineCCTV} Online</span>
-            <span style="color: #ef4444; font-weight: 600;">✕ ${koperasi.totalCCTV - koperasi.onlineCCTV} Offline</span>
-          </div>
-        </div>
-      `;
-
-      marker.bindPopup(popupHtml, { maxWidth: 250 });
+      marker.bindPopup(popupHtml, { maxWidth: 260 });
       marker.on('click', () => {
         onSelectKoperasi(isSelected ? null : koperasi);
         marker.openPopup();
-        window.open(`/dashboard/koperasi/${koperasi.id}`, '_blank');
       });
 
       marker.addTo(mapRef.current);
       markersRef.current[koperasi.id] = marker;
+    });
+
+    Object.keys(markersRef.current).forEach((id) => {
+      if (!nextIds.has(id)) {
+        const marker = markersRef.current[id];
+        if (mapRef.current.hasLayer(marker)) {
+          mapRef.current.removeLayer(marker);
+        }
+        delete markersRef.current[id];
+      }
     });
   }, [koperasiList, selectedKoperasi, mapReady, onSelectKoperasi, createMarkerIcon]);
 
@@ -229,6 +266,7 @@ export default function KoperasiMap({
       mapRef.current.setZoom(direction === 'in' ? zoom + 1 : zoom - 1);
     }
   };
+
 
   return (
     <div className="relative w-full bg-slate-900 rounded-xl border border-gray-800 overflow-hidden" style={{ height: '600px' }}>

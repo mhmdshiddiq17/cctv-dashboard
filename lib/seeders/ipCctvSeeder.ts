@@ -39,6 +39,7 @@ export async function ensureIPCCTVData() {
             protocol: 'RTSP',
             username: 'admin',
             password: 'Dummy@Password123', // Dummy password
+            streamPath: '/Streaming/Channels/101',
             isActive: true,
             assignedAt: new Date(),
             notes: 'Auto-generated dummy IP',

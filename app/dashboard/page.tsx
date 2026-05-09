@@ -1,14 +1,13 @@
 'use client';
 
-import { useEffect, useState } from "react";
-import { Map, Grid3x3, RefreshCw } from "lucide-react";
+import { useState } from "react";
+import { RefreshCw } from "lucide-react";
 import KoperasiMap from "@/components/map/KoperasiMap";
 import KoperasiTable from "@/components/ui/KoperasiTable";
 import type { KoperasiSummary } from "@/lib/types";
 import { KOPERASI_LIST } from "@/lib/const";
 import { useRouter } from "next/navigation";
 
-type ViewMode = 'map' | 'table';
 type StatColor = "red" | "green" | "yellow" | "gray";
 
 // ─── STAT CARD ────────────────────────────────────────────────────
@@ -32,7 +31,6 @@ function StatCard({ label, value, sub, color }: Readonly<{ label: string; value:
 // ─── MAIN APP ──────────────────────────────────────────────────────
 export default function DashboardPage() {
   const [pingResult, setPingResult] = useState<{ success: boolean; latency?: number; error?: string } | null>(null);
-  const [viewMode, setViewMode] = useState<ViewMode>('map');
   const [selectedKoperasi, setSelectedKoperasi] = useState<KoperasiSummary | null>(null);
   const router = useRouter();
 
@@ -78,30 +76,8 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* View Toggle & Controls */}
-      <div className="px-5 py-3 border-b border-gray-800 bg-gray-950 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setViewMode('map')}
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg font-semibold text-sm transition ${
-              viewMode === 'map'
-                ? 'bg-red-600 text-white'
-                : 'bg-gray-900 text-gray-400 border border-gray-700 hover:border-red-600 hover:text-white'
-            }`}
-          >
-            <Map size={16} /> Peta
-          </button>
-          <button
-            onClick={() => setViewMode('table')}
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg font-semibold text-sm transition ${
-              viewMode === 'table'
-                ? 'bg-red-600 text-white'
-                : 'bg-gray-900 text-gray-400 border border-gray-700 hover:border-red-600 hover:text-white'
-            }`}
-          >
-            <Grid3x3 size={16} /> Tabel
-          </button>
-        </div>
+      {/* Controls */}
+      <div className="px-5 py-3 border-b border-gray-800 bg-gray-950 flex items-center justify-end">
         <button 
           onClick={handleRefresh}
           className="flex items-center gap-2 px-3 py-1.5 text-gray-400 hover:text-white transition text-sm"
@@ -112,21 +88,18 @@ export default function DashboardPage() {
       </div>
 
       {/* Content Area */}
-      <div className="flex-1 overflow-hidden p-4">
-        {viewMode === 'map' ? (
-          <KoperasiMap
-            koperasiList={KOPERASI_LIST}
-            selectedKoperasi={selectedKoperasi}
-            onSelectKoperasi={(koperasi: KoperasiSummary | null) => {
-              setSelectedKoperasi(koperasi);
-            }}
-          />
-        ) : (
-          <KoperasiTable
-            koperasiList={KOPERASI_LIST}
-            onSelectKoperasi={handleSelectKoperasi}
-          />
-        )}
+      <div className="flex-1 overflow-auto p-4 space-y-4">
+        <KoperasiMap
+          koperasiList={KOPERASI_LIST}
+          selectedKoperasi={selectedKoperasi}
+          onSelectKoperasi={(koperasi: KoperasiSummary | null) => {
+            setSelectedKoperasi(koperasi);
+          }}
+        />
+        <KoperasiTable
+          koperasiList={KOPERASI_LIST}
+          onSelectKoperasi={handleSelectKoperasi}
+        />
       </div>
     </>
   );

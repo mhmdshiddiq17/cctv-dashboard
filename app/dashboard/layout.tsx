@@ -3,14 +3,17 @@
 import { useState } from 'react';
 import Sidebar from '@/components/layout/SideBar';
 import { QueryProvider } from '@/components/providers/QueryProvider';
-import { Search, Bell } from 'lucide-react';
+import { Search, Bell, ChevronDown, LogOut, User } from 'lucide-react';
 import { usePathname } from 'next/navigation';
+import Link from 'next/link';
 
 interface CenterLayoutProps {
   children: React.ReactNode;
 }
 
 function Header() {
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+
   return (
     <header className="h-14 bg-gray-950 border-b border-red-900 flex items-center justify-between px-5">
       <div className="flex items-center gap-3">
@@ -33,15 +36,63 @@ function Header() {
             className="bg-gray-900 border border-gray-700 text-gray-300 text-xs rounded-lg pl-8 pr-3 py-2 w-48 focus:outline-none focus:border-red-600 placeholder-gray-600"
           />
         </div>
-        <button className="relative p-2 bg-gray-900 border border-gray-700 rounded-lg text-gray-400 hover:text-white hover:border-red-600 transition">
-          <Bell size={16} />
-          <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full" />
-        </button>
-        <div className="flex items-center gap-2 bg-gray-900 border border-gray-700 rounded-lg px-3 py-1.5">
-          <div className="w-6 h-6 bg-red-600 rounded-full flex items-center justify-center">
-            <span className="text-white text-xs font-bold">A</span>
-          </div>
-          <span className="text-gray-300 text-xs">Admin</span>
+        <div
+          className="relative"
+          onBlur={(event) => {
+            const nextFocus = event.relatedTarget as HTMLElement | null;
+            if (!event.currentTarget.contains(nextFocus)) {
+              setUserMenuOpen(false);
+            }
+          }}
+          onKeyDown={(event) => {
+            if (event.key === 'Escape') {
+              setUserMenuOpen(false);
+            }
+          }}
+        >
+          <button
+            type="button"
+            onClick={() => setUserMenuOpen((open) => !open)}
+            className="flex items-center gap-2 bg-gray-900 border border-gray-700 rounded-lg px-3 py-1.5 text-gray-300 text-xs hover:border-red-600 hover:text-white transition"
+            aria-haspopup="menu"
+            aria-expanded={userMenuOpen}
+            aria-controls="user-menu"
+          >
+            <div className="w-6 h-6 bg-red-600 rounded-full flex items-center justify-center">
+              <span className="text-white text-xs font-bold">A</span>
+            </div>
+            <span>Admin</span>
+            <ChevronDown
+              size={14}
+              className={`transition ${userMenuOpen ? 'rotate-180 text-white' : 'text-gray-400'}`}
+            />
+          </button>
+          {userMenuOpen && (
+            <div
+              id="user-menu"
+              role="menu"
+              className="absolute right-0 mt-2 w-44 rounded-xl border border-gray-800 bg-gray-950 shadow-[0_18px_40px_-24px_rgba(0,0,0,0.7)] p-1 z-30"
+            >
+              <Link
+                href="/dashboard/pengaturan"
+                role="menuitem"
+                className="flex items-center gap-2 rounded-lg px-3 py-2 text-xs text-gray-300 hover:bg-gray-900 hover:text-white transition"
+                onClick={() => setUserMenuOpen(false)}
+              >
+                <User size={14} />
+                Profile
+              </Link>
+              <Link
+                href="/"
+                role="menuitem"
+                className="flex items-center gap-2 rounded-lg px-3 py-2 text-xs text-gray-300 hover:bg-gray-900 hover:text-white transition"
+                onClick={() => setUserMenuOpen(false)}
+              >
+                <LogOut size={14} />
+                Keluar
+              </Link>
+            </div>
+          )}
         </div>
       </div>
     </header>

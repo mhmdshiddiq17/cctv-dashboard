@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '@prisma/client';
+import { createHash } from 'node:crypto';
 import { Pool } from 'pg';
 
 const databaseUrl = process.env.DATABASE_URL;
@@ -26,6 +27,8 @@ type SeedKoperasi = {
   address: string;
   latitude: number;
   longitude: number;
+  ipSubnet: string;
+  defaultPassword: string;
 };
 
 type SeedCctv = {
@@ -35,57 +38,76 @@ type SeedCctv = {
   resolution: string;
   brand: string;
   ipAddress: string;
+  streamPath: string;
 };
 
 const KOPERASI_SEED: SeedKoperasi[] = [
   {
-    id: '1',
+    id: '65ea8854-b5f2-43dc-8f5f-9b9622f45f14',
     name: 'KSP Sejahtera Mandiri',
     city: 'Surabaya',
     provinceNama: 'Jawa Timur',
     address: 'Jl. Pahlawan No. 10, Surabaya',
     latitude: -6.93136,
     longitude: 110.82637,
+    ipSubnet: '192.168.1',
+    defaultPassword: 'password',
   },
   {
-    id: '2',
+    id: '2bdcf258-2d7a-4e63-b258-3efba9207e78',
     name: 'KUD Mitra Tani',
     city: 'Sidoarjo',
     provinceNama: 'Jawa Timur',
     address: 'Jl. Raya Sidoarjo No. 21, Sidoarjo',
     latitude: -6.72636,
     longitude: 111.55538,
+    ipSubnet: '192.168.2',
+    defaultPassword: 'Hik2026!',
   },
   {
-    id: '3',
+    id: '26da5f8d-bf98-4594-a2d5-b922537f0de8',
     name: 'Kopkar Nusantara',
     city: 'Gresik',
     provinceNama: 'Jawa Timur',
     address: 'Jl. Veteran No. 8, Gresik',
     latitude: -7.6565,
     longitude: 110.89875,
+    ipSubnet: '192.168.3',
+    defaultPassword: 'password',
   },
   {
-    id: '4',
+    id: '17f283ef-dd2b-42fd-ad55-4daaf8f0d6ea',
     name: 'KSP Bumi Artha',
     city: 'Jakarta',
     provinceNama: 'DKI Jakarta',
     address: 'Jl. Sudirman No. 5, Jakarta',
     latitude: -6.2088,
     longitude: 106.8456,
+    ipSubnet: '192.168.4',
+    defaultPassword: 'password',
   },
   {
-    id: '5',
+    id: '0be8fe9b-0cad-47eb-8778-52c57dc2692b',
     name: 'KUD Karya Bersama',
     city: 'Bandung',
     provinceNama: 'Jawa Barat',
     address: 'Jl. Asia Afrika No. 99, Bandung',
     latitude: -6.9175,
     longitude: 107.6191,
+    ipSubnet: '192.168.5',
+    defaultPassword: 'password',
   },
 ];
 
-function buildCameraSeed(koperasiId: string): SeedCctv[] {
+function createStableUuid(seed: string) {
+  const hash = createHash('sha256').update(seed).digest('hex').slice(0, 32).split('');
+  hash[12] = '4';
+  hash[16] = ['8', '9', 'a', 'b'][Number.parseInt(hash[16], 16) % 4];
+  const hex = hash.join('');
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20, 32)}`;
+}
+
+function buildCameraSeed(koperasi: SeedKoperasi): SeedCctv[] {
   return [
     {
       label: 'CCTV-01',
@@ -93,25 +115,26 @@ function buildCameraSeed(koperasiId: string): SeedCctv[] {
       status: 'ONLINE',
       resolution: '4K',
       brand: 'Hikvision',
-      ipAddress: koperasiId === '2'
-        ? 'rtsp://admin:Hik2026!@192.168.6.9:554/Streaming/Channels/102'
-        : `rtsp://admin:password@192.168.${koperasiId}.101:554/Streaming/Channels/101`,
+      ipAddress: `${koperasi.ipSubnet}.101`,
+      streamPath: '/Streaming/Channels/101',
     },
     {
       label: 'CCTV-02',
       location: 'Lobby',
-      status: 'OFFLINE',
+      status: 'ONLINE',
       resolution: '1080p',
-      brand: 'Dahua',
-      ipAddress: `rtsp://admin:password@192.168.${koperasiId}.102:554/Streaming/Channels/101`,
+      brand: 'Hikvision',
+      ipAddress: `${koperasi.ipSubnet}.102`,
+      streamPath: '/Streaming/Channels/101',
     },
     {
       label: 'CCTV-03',
       location: 'Kasir',
-      status: 'MAINTENANCE',
+      status: 'ONLINE',
       resolution: '1080p',
-      brand: 'Axis',
-      ipAddress: `rtsp://admin:password@192.168.${koperasiId}.103:554/Streaming/Channels/101`,
+      brand: 'Hikvision',
+      ipAddress: `${koperasi.ipSubnet}.103`,
+      streamPath: '/Streaming/Channels/101',
     },
   ];
 }
@@ -147,11 +170,11 @@ async function seedKoperasiData() {
       where: { koperasiId: koperasi.id },
     });
 
-    const cameraSeed = buildCameraSeed(koperasi.id);
+    const cameraSeed = buildCameraSeed(koperasi);
 
     for (let index = 0; index < cameraSeed.length; index += 1) {
       const camera = cameraSeed[index];
-      const cctvId = `${koperasi.id}-c${index + 1}`;
+      const cctvId = createStableUuid(`cctv:${koperasi.id}:${index + 1}`);
 
       await prisma.cCTV.create({
         data: {
@@ -167,13 +190,14 @@ async function seedKoperasiData() {
 
       const ipRecord = await prisma.iP_CCTV.create({
         data: {
-          id: `${cctvId}-ip1`,
+          id: createStableUuid(`ipcctv:${cctvId}:1`),
           cctvId,
           ipAddress: camera.ipAddress,
           port: 554,
           protocol: 'RTSP',
           username: 'admin',
-          password: koperasi.id === '2' ? 'Hik2026!' : 'password',
+          password: koperasi.defaultPassword,
+          streamPath: camera.streamPath,
           isActive: true,
           changeReason: 'Initial seed data',
           notes: 'Auto seeded for development',

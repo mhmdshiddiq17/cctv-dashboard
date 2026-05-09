@@ -12,9 +12,92 @@ if (!databaseUrl) {
 
 const pool = new Pool({ connectionString: databaseUrl });
 const prisma = new PrismaClient({ adapter: new PrismaPg(pool) });
+const DEFAULT_RTSP_PORT = 554;
+const DEFAULT_RTSP_STREAM_PATH =
+  process.env.CCTV_RTSP_STREAM_PATH?.trim() || '/Streaming/Channels/101';
+
+type ActiveIpRecord = {
+  ipAddress: string;
+  port: number;
+  protocol: string;
+  username: string | null;
+  password: string | null;
+  streamPath: string | null;
+};
 
 function yamlEscape(value: string) {
   return value.replaceAll('"', '""');
+}
+
+function normalizePort(port: unknown) {
+  const numericPort =
+    typeof port === 'number' ? port : typeof port === 'string' ? Number(port) : Number.NaN;
+
+  if (
+    Number.isFinite(numericPort) &&
+    Number.isInteger(numericPort) &&
+    numericPort > 0 &&
+    numericPort <= 65535
+  ) {
+    return numericPort;
+  }
+
+  return DEFAULT_RTSP_PORT;
+}
+
+function normalizePath(path: string | null | undefined) {
+  const cleaned = path?.trim();
+  if (!cleaned) {
+    return DEFAULT_RTSP_STREAM_PATH;
+  }
+
+  return cleaned.startsWith('/') ? cleaned : `/${cleaned}`;
+}
+
+function resolveRtspSource(activeIp: ActiveIpRecord | null) {
+  if (!activeIp) {
+    return null;
+  }
+
+  const rawAddress = activeIp.ipAddress?.trim();
+  if (!rawAddress) {
+    return null;
+  }
+
+  if (rawAddress.includes('://')) {
+    return rawAddress.toLowerCase().startsWith('rtsp://') ? rawAddress : null;
+  }
+
+  if (activeIp.protocol.toUpperCase() !== 'RTSP') {
+    return null;
+  }
+
+  const firstSlashIndex = rawAddress.indexOf('/');
+  const hostPortPart =
+    firstSlashIndex === -1 ? rawAddress : rawAddress.slice(0, firstSlashIndex);
+  const addressPath =
+    firstSlashIndex === -1 ? null : rawAddress.slice(firstSlashIndex);
+
+  let parsedHost: URL;
+  try {
+    parsedHost = new URL(`rtsp://${hostPortPart}`);
+  } catch {
+    return null;
+  }
+
+  if (!parsedHost.hostname) {
+    return null;
+  }
+
+  const username = activeIp.username?.trim() ?? '';
+  const password = activeIp.password?.trim() ?? '';
+  const credentials = username
+    ? `${encodeURIComponent(username)}${password ? `:${encodeURIComponent(password)}` : ''}@`
+    : '';
+  const port = parsedHost.port ? Number(parsedHost.port) : normalizePort(activeIp.port);
+  const path = normalizePath(activeIp.streamPath || addressPath || DEFAULT_RTSP_STREAM_PATH);
+
+  return `rtsp://${credentials}${parsedHost.hostname}:${port}${path}`;
 }
 
 async function main() {
@@ -54,23 +137,18 @@ async function main() {
     'paths:',
   ];
 
-  const configured = cctvs.filter((cctv) => {
-    const ip = cctv.activeIpCctv?.ipAddress?.trim();
-    return Boolean(ip?.startsWith('rtsp://'));
-  });
+  const configured = cctvs
+    .map((cctv) => {
+      const source = resolveRtspSource(cctv.activeIpCctv);
+      return source ? { cctv, source } : null;
+    })
+    .filter((item): item is { cctv: (typeof cctvs)[number]; source: string } => item !== null);
 
   if (configured.length === 0) {
     lines.push('  # No active RTSP sources found in database.');
   }
 
-  for (const cctv of configured) {
-    const activeIp = cctv.activeIpCctv;
-    if (!activeIp) {
-      continue;
-    }
-
-    const source = activeIp.ipAddress.trim();
-
+  for (const { cctv, source } of configured) {
     lines.push(
       `  ${cctv.id}:`,
       `    source: "${yamlEscape(source)}"`,
