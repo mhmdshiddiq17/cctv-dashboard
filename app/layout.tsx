@@ -15,6 +15,9 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Dashboard CCTV Koperasi",
   description: "Dashboard untuk memantau CCTV di koperasi dengan informasi status, lokasi, dan rekaman",
+  icons: {
+    icon: "/Logo-Koperasi-Merah-Putih.png",
+  }
 };
 
 export default function RootLayout({

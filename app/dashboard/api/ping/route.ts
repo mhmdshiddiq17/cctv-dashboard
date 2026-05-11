@@ -1,14 +1,40 @@
 import { exec } from 'child_process';
 
-export async function GET(req: Request) {
-  return new Promise((resolve) => {
-    // Ping 1 kali
-    exec('ping google.com', (error, stdout, stderr) => {
+const PING_HOST = 'google.com';
+
+const getPingCommand = () => {
+  if (process.platform === 'darwin') {
+    return `ping -c 1 -W 1000 ${PING_HOST}`;
+  }
+  return `ping -c 1 -W 1 ${PING_HOST}`;
+};
+
+const parseLatency = (output: string) => {
+  const match = output.match(/time=([0-9.]+)\s*ms/i);
+  return match ? Number.parseFloat(match[1]) : null;
+};
+
+export async function GET() {
+  return new Promise<Response>((resolve) => {
+    exec(getPingCommand(), { timeout: 4000 }, (error, stdout, stderr) => {
       if (error) {
-        resolve(new Response(JSON.stringify({ success: false, error: stderr }), { status: 500 }));
+        const message = stderr?.trim() || error.message || 'Ping failed';
+        resolve(
+          new Response(JSON.stringify({ success: false, error: message }), {
+            status: 500,
+            headers: { 'content-type': 'application/json' },
+          })
+        );
         return;
       }
-      resolve(new Response(JSON.stringify({ success: true, result: stdout }), { status: 200 }));
+
+      const latency = parseLatency(stdout);
+      resolve(
+        new Response(JSON.stringify({ success: true, latency, result: stdout }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        })
+      );
     });
   });
 }
